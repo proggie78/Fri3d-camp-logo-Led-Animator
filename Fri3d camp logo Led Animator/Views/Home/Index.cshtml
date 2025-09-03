@@ -1,0 +1,31 @@
+﻿@{
+    ViewData["Title"] = "Home Page";
+    var hexFrames = ViewData["HexFrames"] as List<string>;
+    var error = ViewData["Error"] as string;
+}
+
+<form asp-action="ProcessGif" method="post" enctype="multipart/form-data" class="mb-4">
+    <div class="form-group">
+        <label for="uploadedFile">Upload GIF:</label>
+        <input type="file" name="uploadedFile" id="uploadedFile" class="form-control" accept=".gif" required />
+    </div>
+    <button type="submit" class="btn btn-primary mt-2">Process GIF</button>
+</form>
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+@if (hexFrames != null && hexFrames.Count > 0)
+{
+    <div class="mt-4">
+        <h3>Processed GIF Frames (Hex):</h3>
+        <ul>
+            @foreach (var frame in hexFrames)
+            {
+                <li>@frame</li>
+            }
+        </ul>
+    </div>
+}

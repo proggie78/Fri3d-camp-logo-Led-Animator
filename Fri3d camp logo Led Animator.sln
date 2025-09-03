@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36301.6 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fri3d camp logo Led Animator", "Fri3d camp logo Led Animator\Fri3d camp logo Led Animator.csproj", "{68CBED5C-C84E-43F4-B98B-ADB32721E02B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{68CBED5C-C84E-43F4-B98B-ADB32721E02B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{68CBED5C-C84E-43F4-B98B-ADB32721E02B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{68CBED5C-C84E-43F4-B98B-ADB32721E02B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{68CBED5C-C84E-43F4-B98B-ADB32721E02B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {441CFF36-ECE7-41F1-BDD1-D882BBF40F99}
+	EndGlobalSection
+EndGlobal

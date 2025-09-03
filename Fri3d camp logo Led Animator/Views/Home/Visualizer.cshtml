@@ -1,0 +1,52 @@
+﻿@page
+@model Fri3d_camp_logo_Led_Animator.Views.Home.VisualizerModel
+@* @{
+    ViewData["Title"] = "Visualizer";
+} *@
+
+<h2>Coordinate Visualizer</h2>
+
+<form id="coordinatesForm" class="mb-3">
+    <label for="coordinatesInput">Paste coordinates (format: id,x,y per line):</label>
+    <textarea id="coordinatesInput" rows="8" class="form-control" placeholder="0,486.5,237&#10;1,477.5,246&#10;2,468,256"></textarea>
+    <button type="button" class="btn btn-primary mt-2" onclick="drawDots()">Draw Dots</button>
+</form>
+
+<div style="border:1px solid #ccc; width:1295px; height:491px; position:relative; margin-bottom:20px;">
+    <canvas id="visualizerCanvas" width="1295" height="491"></canvas>
+</div>
+
+<script>
+function drawDots() {
+    const input = document.getElementById('coordinatesInput').value;
+    const lines = input.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const coords = lines.map(line => {
+        const parts = line.split(';');
+        if (parts.length !== 3) return null;
+        return {
+            id: parts[0],
+            x: parseFloat(parts[1]),
+            y: parseFloat(parts[2])
+        };
+    }).filter(c => c !== null && !isNaN(c.x) && !isNaN(c.y));
+
+    const canvas = document.getElementById('visualizerCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    coords.forEach(coord => {
+        // Draw dot
+        ctx.beginPath();
+        ctx.arc(coord.x, coord.y, 5, 0, 2 * Math.PI);
+        ctx.fillStyle = '#007bff';
+        ctx.fill();
+        ctx.strokeStyle = '#333';
+        ctx.stroke();
+
+        // Optionally, draw the id next to the dot
+        ctx.font = '12px Arial';
+        ctx.fillStyle = '#333';
+        ctx.fillText(coord.id, coord.x + 5, coord.y - 5);
+    });
+}
+</script>
