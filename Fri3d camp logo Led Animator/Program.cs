@@ -1,7 +1,12 @@
+using Fri3d_camp_logo_Led_Animator.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+
+builder.Services.AddScoped<GifProcessor>();
+builder.Services.AddScoped<CppHeaderGenerator>();
 
 var app = builder.Build();
 

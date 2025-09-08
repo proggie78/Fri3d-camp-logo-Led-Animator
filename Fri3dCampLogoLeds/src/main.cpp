@@ -5,6 +5,7 @@
 #include <FastLED.h>
 #include "secrets.h"
 #include "webpage.h"
+#include "led_animation_fire.h" // Include the generated animation data header
 
 // Your existing defines
 #define LED_PIN     2
@@ -19,17 +20,21 @@ const char* ssid = SECRET_SSID;
 const char* password = SECRET_PASS;
 
 enum Effect {
-  SOLID,
-  CHASE,
-  LITPART
+    SOLID,
+    CHASE,
+    LITPART,
+    ANIMATION_FIRE // New ANIMATION_FIRE effect
 };
 
 // Global variables for control
 volatile unsigned long led_interval = 20;
 volatile bool lit_all = false;
 volatile Effect led_effect = SOLID; // Default effect
+CRGB currentColor = CRGB::White;
 
-
+// Global variables for animation
+int currentFrame = 0;
+int numFrames = 60; // You will need to change this to the number of frames you generate
 
 void handleRoot() {
     server.send(200, "text/html", HTML_CODE);
@@ -55,10 +60,14 @@ void handleSetEffect() {
         String effectStr = server.arg("value");
         if (effectStr == "SOLID") {
             led_effect = SOLID;
+            FastLED.showColor(currentColor);
         } else if (effectStr == "CHASE") {
             led_effect = CHASE;
         } else if (effectStr == "LITPART") {
             led_effect = LITPART;
+        } else if (effectStr == "ANIMATION_FIRE") { // New handler for ANIMATION_FIRE
+            led_effect = ANIMATION_FIRE;
+            currentFrame = 0; // Reset ANIMATION_FIRE to start
         }
         Serial.print("New effect set: ");
         Serial.println(effectStr);
@@ -73,6 +82,7 @@ void handleSetColor() {
         byte r = (number >> 16) & 0xFF;
         byte g = (number >> 8) & 0xFF;
         byte b = number & 0xFF;
+        currentColor = CRGB(r, g, b); // Set global color
         for(int i = 0; i < NUM_LEDS; i++) {
             leds[i] = CRGB(r, g, b);
         }
@@ -144,26 +154,20 @@ void loop() {
     static int current = 0;
     static bool turningOn = true;
     static unsigned long lastUpdate = 0;
-    //FastLED.setBrightness(led_brightness);
     FastLED.setBrightness(20);
 
-    // Check for "lit all" command first
-    //if (lit_all) {
-    //    FastLED.showColor(CRGB::White);
-    //    lit_all = false; // Reset the flag
-    //    turningOn = true; // Reset the normal animation
-    //    current = 0;
-    //} 
-    //else 
+
     if(led_effect == SOLID)
     {
-        FastLED.showColor(CRGB::White);
+      //handeld in the update of the part
+      // do nothing here, the part is set via the webserver
+      delay(100); // Allow time for processor to handle new requests
     }
     else if(led_effect == LITPART)
     {
       //handeld in the update of the part
       // do nothing here, the part is set via the webserver
-      delay(10); // Allow time for processor to handle new requests
+      delay(100); // Allow time for processor to handle new requests
     }
     else if(led_effect == CHASE)
     {
@@ -186,6 +190,29 @@ void loop() {
               current = 0;
           }
         }
-      }
     }
- 
+    else if (led_effect == ANIMATION_FIRE) // New ANIMATION_FIRE effect logic
+    {
+      if (millis() - lastUpdate > led_interval)
+      {
+          lastUpdate = millis();
+          FastLED.clear();
+          // The data is stored in a single flat array. We calculate the offset for each frame and pixel.
+          for (int i = 0; i < NUM_LEDS; i++)
+          {
+              // Calculate the index in the flat array:
+              // (currentFrame * (number of bytes per frame)) + (current pixel index * number of bytes per pixel)
+              int index = (currentFrame * NUM_LEDS * 3) + (i * 3);
+              leds[i].r = ledAnimationData[index + 0];
+              leds[i].g = ledAnimationData[index + 1];
+              leds[i].b = ledAnimationData[index + 2];
+          }
+
+          FastLED.show();
+
+          // Move to the next frame and loop if at the end
+          currentFrame = (currentFrame + 1) % numFrames;
+      }
+      delay(10); // Allow time for processor to handle new requests
+    }
+}
