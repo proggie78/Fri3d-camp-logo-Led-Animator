@@ -6,6 +6,7 @@
 #include "secrets.h"
 #include "webpage.h"
 #include "led_animation_fire.h" // Include the generated animation data header
+#include "led_animation_left_right.h" // Include the generated animation data header
 
 // Your existing defines
 #define LED_PIN     2
@@ -23,7 +24,8 @@ enum Effect {
     SOLID,
     CHASE,
     LITPART,
-    ANIMATION_FIRE // New ANIMATION_FIRE effect
+    ANIMATION_FIRE, // New ANIMATION_FIRE effect
+    ANIMATION_LEFT_RIGHT 
 };
 
 // Global variables for control
@@ -68,7 +70,10 @@ void handleSetEffect() {
         } else if (effectStr == "ANIMATION_FIRE") { // New handler for ANIMATION_FIRE
             led_effect = ANIMATION_FIRE;
             currentFrame = 0; // Reset ANIMATION_FIRE to start
-        }
+        } else if (effectStr == "ANIMATION_LEFT_RIGHT") { // New handler for ANIMATION_LEFT_RIGHT
+            led_effect = ANIMATION_LEFT_RIGHT;
+            currentFrame = 0; // Reset ANIMATION_LEFT_RIGHT to start
+        }   
         Serial.print("New effect set: ");
         Serial.println(effectStr);
     }
@@ -211,7 +216,31 @@ void loop() {
           FastLED.show();
 
           // Move to the next frame and loop if at the end
-          currentFrame = (currentFrame + 1) % numFrames;
+          currentFrame = (currentFrame + 1) % 61;
+      }
+      delay(10); // Allow time for processor to handle new requests
+    }
+    else if (led_effect == ANIMATION_LEFT_RIGHT) // New ANIMATION_LEFT_RIGHT effect logic
+    {
+      if (millis() - lastUpdate > led_interval)
+      {
+          lastUpdate = millis();
+          FastLED.clear();
+          // The data is stored in a single flat array. We calculate the offset for each frame and pixel.
+          for (int i = 0; i < NUM_LEDS; i++)
+          {
+              // Calculate the index in the flat array:
+              // (currentFrame * (number of bytes per frame)) + (current pixel index * number of bytes per pixel)
+              int index = (currentFrame * NUM_LEDS * 3) + (i * 3);
+              leds[i].r = ledAnimationLeftRight[index + 0];
+              leds[i].g = ledAnimationLeftRight[index + 1];
+              leds[i].b = ledAnimationLeftRight[index + 2];
+          }
+
+          FastLED.show();
+
+          // Move to the next frame and loop if at the end
+          currentFrame = (currentFrame + 1) % 37;
       }
       delay(10); // Allow time for processor to handle new requests
     }

@@ -30,8 +30,8 @@ public class GifProcessor
         _env = env;
     }
 
-    static int width = 1295;  // Target width for resizing
-    static int height = 491; // Target height for resizing
+    static int width = 1089;  // Target width for resizing
+    static int height = 344; // Target height for resizing
 
     /// <summary>
     /// Processes a GIF and extracts pixel data for each LED.
@@ -75,6 +75,8 @@ public class GifProcessor
                     //// Iterate through the predefined LED map.
                     foreach (var point in ledMap)
                     {
+                        try
+                        {
                         // Get the pixel color at the specified (X, Y) coordinate.
                         var pixel = frame[point.X, point.Y];
 
@@ -82,6 +84,13 @@ public class GifProcessor
                         frameBytes[byteIndex++] = pixel.R;
                         frameBytes[byteIndex++] = pixel.G;
                         frameBytes[byteIndex++] = pixel.B;
+                        }
+                        catch (Exception testex)
+                        {
+
+                            throw;
+                        }
+
                     }
 
                     // Add the completed frame's byte array to our list.

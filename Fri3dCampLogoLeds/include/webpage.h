@@ -154,9 +154,13 @@ const char* HTML_CODE = R"rawliteral(
 	   <button class="button" onclick="litPart()">Update</button>
     </div>
 
-          <div class="effect-option">
+      <div class="effect-option">
         <input type="radio" id="fire" name="effect" value="ANIMATION_FIRE" onchange="selectEffect(this.value)">
         <label for="fire">Fire</label>
+      </div>
+      <div class="effect-option">
+        <input type="radio" id="leftright" name="effect" value="ANIMATION_LEFT_RIGHT" onchange="selectEffect(this.value)">
+        <label for="leftright">Left to right</label>
       </div>
 
   </div>
