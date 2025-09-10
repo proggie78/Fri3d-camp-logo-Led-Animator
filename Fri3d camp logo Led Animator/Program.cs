@@ -7,6 +7,8 @@ builder.Services.AddControllersWithViews();
 
 builder.Services.AddScoped<GifProcessor>();
 builder.Services.AddScoped<CppHeaderGenerator>();
+builder.Services.AddScoped<BinaryFileGenerator>();
+
 
 var app = builder.Build();
 

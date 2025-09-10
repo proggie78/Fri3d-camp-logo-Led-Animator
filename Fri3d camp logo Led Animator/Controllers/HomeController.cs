@@ -12,11 +12,11 @@ using System.Net.Mime;
 
 namespace Fri3d_camp_logo_Led_Animator.Controllers;
 
-public class HomeController(GifProcessor gifProcessor, ILogger<HomeController> logger, CppHeaderGenerator cppHeaderGenerator) : Controller
+public class HomeController(GifProcessor gifProcessor, ILogger<HomeController> logger, BinaryFileGenerator binaryFileGenerator) : Controller
 {
     private readonly GifProcessor _gifProcessor = gifProcessor;
     private readonly ILogger<HomeController> _logger = logger;
-    private readonly CppHeaderGenerator _cppHeaderGenerator = cppHeaderGenerator;
+    private readonly BinaryFileGenerator _binaryFileGenerator = binaryFileGenerator;
 
     public IActionResult Index()
     {
@@ -44,8 +44,8 @@ public class HomeController(GifProcessor gifProcessor, ILogger<HomeController> l
         }
 
         string tempFilePath = Path.GetTempFileName();
-        string outputHeaderFileName = "led_animation.h";
-        string outputHeaderPath = Path.Combine(Path.GetTempPath(), outputHeaderFileName);
+        string outputBinFileName = uploadedFile.FileName + ".bin";//"led_animation.h";
+        string outputBinaryPath = Path.Combine(Path.GetTempPath(), outputBinFileName);
 
         try
         {
@@ -65,11 +65,12 @@ public class HomeController(GifProcessor gifProcessor, ILogger<HomeController> l
             }
 
             // Generate the C++ header file with the processed data.
-            _cppHeaderGenerator.GenerateHeaderFile(processedData, outputHeaderPath, "ledAnimationData");
+            //_cppHeaderGenerator.GenerateHeaderFile(processedData, outputHeaderPath, "ledAnimationData");
+            _binaryFileGenerator.GenerateBinaryFile(processedData, outputBinaryPath);
 
             // Return the generated file as a downloadable file to the user.
-            var fileBytes = await System.IO.File.ReadAllBytesAsync(outputHeaderPath);
-            return File(fileBytes, MediaTypeNames.Text.Plain, outputHeaderFileName);
+            var fileBytes = await System.IO.File.ReadAllBytesAsync(outputBinaryPath);
+            return File(fileBytes, MediaTypeNames.Text.Plain, outputBinFileName);
         }
         catch (System.Exception ex)
         {
@@ -84,9 +85,9 @@ public class HomeController(GifProcessor gifProcessor, ILogger<HomeController> l
             {
                 System.IO.File.Delete(tempFilePath);
             }
-            if (System.IO.File.Exists(outputHeaderPath))
+            if (System.IO.File.Exists(outputBinaryPath))
             {
-                System.IO.File.Delete(outputHeaderPath);
+                System.IO.File.Delete(outputBinaryPath);
             }
         }
     }

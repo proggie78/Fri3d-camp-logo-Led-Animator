@@ -3,6 +3,9 @@
 #include <WebServer.h>
 #include <ArduinoOTA.h>
 #include <FastLED.h>
+#include <FS.h>
+#include <LittleFS.h>
+#include <ArduinoJson.h>
 #include "secrets.h"
 #include "webpage.h"
 #include "led_animation_fire.h" // Include the generated animation data header
@@ -25,7 +28,8 @@ enum Effect {
     CHASE,
     LITPART,
     ANIMATION_FIRE, // New ANIMATION_FIRE effect
-    ANIMATION_LEFT_RIGHT 
+    ANIMATION_LEFT_RIGHT,
+    UPLOADED_ANIMATION // New effect for user-uploaded animations
 };
 
 // Global variables for control
@@ -37,6 +41,12 @@ CRGB currentColor = CRGB::White;
 // Global variables for animation
 int currentFrame = 0;
 int numFrames = 60; // You will need to change this to the number of frames you generate
+int uploadedNumFrames = 0;
+uint8_t* uploadedAnimationData = nullptr;
+String currentAnimationFile = "";
+
+// Function prototypes
+void loadAnimation(const String& fileName);
 
 void handleRoot() {
     server.send(200, "text/html", HTML_CODE);
@@ -67,13 +77,18 @@ void handleSetEffect() {
             led_effect = CHASE;
         } else if (effectStr == "LITPART") {
             led_effect = LITPART;
-        } else if (effectStr == "ANIMATION_FIRE") { // New handler for ANIMATION_FIRE
+        } else if (effectStr == "ANIMATION_FIRE") {
             led_effect = ANIMATION_FIRE;
-            currentFrame = 0; // Reset ANIMATION_FIRE to start
-        } else if (effectStr == "ANIMATION_LEFT_RIGHT") { // New handler for ANIMATION_LEFT_RIGHT
+            currentFrame = 0;
+        } else if (effectStr == "ANIMATION_LEFT_RIGHT") {
             led_effect = ANIMATION_LEFT_RIGHT;
-            currentFrame = 0; // Reset ANIMATION_LEFT_RIGHT to start
-        }   
+            currentFrame = 0;
+        } else if (effectStr == "UPLOADED_ANIMATION") {
+            // This is handled by a separate endpoint that also passes the filename
+            Serial.println("Please use the /select_animation endpoint to choose a file.");
+            server.send(200, "text/plain", "OK");
+            return;
+        }
         Serial.print("New effect set: ");
         Serial.println(effectStr);
     }
@@ -120,6 +135,112 @@ void handleSetLitPart() {
     }
 }
 
+void handleUploadAnimation() {
+    HTTPUpload& upload = server.upload();
+    if (upload.status == UPLOAD_FILE_START) {
+        String filename = upload.filename;
+        if (!filename.startsWith("/")) {
+            filename = "/" + filename;
+        }
+        Serial.printf("Receiving uploaded file: %s\n", filename.c_str());
+        File file = LittleFS.open(filename, "w");
+        if (!file) {
+            Serial.println("Failed to open file for writing");
+            return;
+        }
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+        // Write the received data to file
+        String filename = upload.filename;
+        if (!filename.startsWith("/")) {
+            filename = "/" + filename;
+        }
+        File file = LittleFS.open(filename, "a");
+        file.write(upload.buf, upload.currentSize);
+        file.close();
+    } else if (upload.status == UPLOAD_FILE_END) {
+        Serial.printf("File upload complete. File size: %d bytes\n", upload.totalSize);
+        server.sendHeader("Connection", "close");
+        server.send(200, "text/plain", "Animation saved successfully!");
+    }
+}
+
+void loadAnimation(const String& fileName) {
+    File file = LittleFS.open(fileName, "r");
+    if (!file) {
+        Serial.printf("Failed to open uploaded animation file: %s\n", fileName.c_str());
+        uploadedNumFrames = 0;
+        return;
+    }
+
+    if (uploadedAnimationData != nullptr) {
+        free(uploadedAnimationData);
+        uploadedAnimationData = nullptr;
+    }
+    
+    // Allocate memory for the animation data
+    uploadedAnimationData = (uint8_t*)malloc(file.size());
+    if (uploadedAnimationData == nullptr) {
+        Serial.println("Failed to allocate memory for uploaded animation!");
+        uploadedNumFrames = 0;
+        file.close();
+        return;
+    }
+    
+    file.read(uploadedAnimationData, file.size());
+    file.close();
+    uploadedNumFrames = file.size() / (NUM_LEDS * 3);
+    Serial.printf("Loaded animation '%s' with %d frames.\n", fileName.c_str(), uploadedNumFrames);
+}
+
+void handleSelectAnimation() {
+    if (server.hasArg("filename")) {
+        String filename = server.arg("filename");
+        Serial.printf("Selecting animation: %s\n", filename.c_str());
+        currentAnimationFile = filename;
+        led_effect = UPLOADED_ANIMATION;
+        currentFrame = 0;
+        loadAnimation("/" + filename);
+        server.send(200, "text/plain", "OK");
+    } else {
+        server.send(400, "text/plain", "Error: Missing filename parameter.");
+    }
+}
+
+void handleDeleteAnimation() {
+    if (!server.hasArg("filename")) {
+        server.send(400, "text/plain", "Missing filename");
+        return;
+    }
+    String filename = server.arg("filename");
+    String fullPath = "/" + filename;
+    if (LittleFS.exists(fullPath)) {
+        if (LittleFS.remove(fullPath)) {
+            server.send(200, "text/plain", "File deleted successfully!");
+        } else {
+            server.send(500, "text/plain", "Failed to delete file!");
+        }
+    } else {
+        server.send(404, "text/plain", "File not found!");
+    }
+}
+
+void handleListAnimations() {
+    DynamicJsonDocument doc(1024);
+    JsonArray animations = doc.to<JsonArray>();
+
+    File root = LittleFS.open("/");
+    File file = root.openNextFile();
+
+    while (file) {
+        animations.add(file.name());
+        file = root.openNextFile();
+    }
+
+    String output;
+    serializeJson(doc, output);
+    server.send(200, "application/json", output);
+}
+
 void setup() {
     Serial.begin(115200);
     ArduinoOTA.setHostname("fri3dcamplogo");
@@ -142,12 +263,22 @@ void setup() {
     FastLED.clear();
     FastLED.show();
 
+    // LittleFS setup
+    if (!LittleFS.begin(true)) {
+        Serial.println("An Error has occurred while mounting LittleFS");
+        return;
+    }
+
     // Web server setup
     server.on("/", handleRoot);
     server.on("/set_speed", handleSetSpeed);
     server.on("/set_effect", handleSetEffect);
     server.on("/set_color", handleSetColor);
     server.on("/set_litpart", handleSetLitPart);
+    server.on("/upload_animation", HTTP_POST, [](){ server.send(200); }, handleUploadAnimation);
+    server.on("/list_animations", handleListAnimations);
+    server.on("/select_animation", handleSelectAnimation);
+    server.on("/delete_animation", handleDeleteAnimation);
     server.begin();
     Serial.println("HTTP server started");
 }
@@ -164,15 +295,11 @@ void loop() {
 
     if(led_effect == SOLID)
     {
-      //handeld in the update of the part
-      // do nothing here, the part is set via the webserver
-      delay(100); // Allow time for processor to handle new requests
+      delay(100); 
     }
     else if(led_effect == LITPART)
     {
-      //handeld in the update of the part
-      // do nothing here, the part is set via the webserver
-      delay(100); // Allow time for processor to handle new requests
+      delay(100); 
     }
     else if(led_effect == CHASE)
     {
@@ -196,41 +323,32 @@ void loop() {
           }
         }
     }
-    else if (led_effect == ANIMATION_FIRE) // New ANIMATION_FIRE effect logic
+    else if (led_effect == ANIMATION_FIRE)
     {
       if (millis() - lastUpdate > led_interval)
       {
           lastUpdate = millis();
           FastLED.clear();
-          // The data is stored in a single flat array. We calculate the offset for each frame and pixel.
           for (int i = 0; i < NUM_LEDS; i++)
           {
-              // Calculate the index in the flat array:
-              // (currentFrame * (number of bytes per frame)) + (current pixel index * number of bytes per pixel)
               int index = (currentFrame * NUM_LEDS * 3) + (i * 3);
-              leds[i].r = ledAnimationData[index + 0];
-              leds[i].g = ledAnimationData[index + 1];
-              leds[i].b = ledAnimationData[index + 2];
+              leds[i].r = ledAnimationFire[index + 0];
+              leds[i].g = ledAnimationFire[index + 1];
+              leds[i].b = ledAnimationFire[index + 2];
           }
 
           FastLED.show();
-
-          // Move to the next frame and loop if at the end
           currentFrame = (currentFrame + 1) % 61;
       }
-      delay(10); // Allow time for processor to handle new requests
     }
-    else if (led_effect == ANIMATION_LEFT_RIGHT) // New ANIMATION_LEFT_RIGHT effect logic
+    else if (led_effect == ANIMATION_LEFT_RIGHT)
     {
       if (millis() - lastUpdate > led_interval)
       {
           lastUpdate = millis();
           FastLED.clear();
-          // The data is stored in a single flat array. We calculate the offset for each frame and pixel.
           for (int i = 0; i < NUM_LEDS; i++)
           {
-              // Calculate the index in the flat array:
-              // (currentFrame * (number of bytes per frame)) + (current pixel index * number of bytes per pixel)
               int index = (currentFrame * NUM_LEDS * 3) + (i * 3);
               leds[i].r = ledAnimationLeftRight[index + 0];
               leds[i].g = ledAnimationLeftRight[index + 1];
@@ -238,10 +356,34 @@ void loop() {
           }
 
           FastLED.show();
-
-          // Move to the next frame and loop if at the end
           currentFrame = (currentFrame + 1) % 37;
       }
-      delay(10); // Allow time for processor to handle new requests
+    }
+    else if (led_effect == UPLOADED_ANIMATION) // Display the uploaded animation
+    {
+      if (uploadedAnimationData != nullptr && uploadedNumFrames > 0)
+      {
+        if (millis() - lastUpdate > led_interval)
+        {
+            lastUpdate = millis();
+            FastLED.clear();
+            for (int i = 0; i < NUM_LEDS; i++)
+            {
+                int index = (currentFrame * NUM_LEDS * 3) + (i * 3);
+                leds[i].r = uploadedAnimationData[index + 0];
+                leds[i].g = uploadedAnimationData[index + 1];
+                leds[i].b = uploadedAnimationData[index + 2];
+            }
+            FastLED.show();
+            currentFrame = (currentFrame + 1) % uploadedNumFrames;
+        }
+      } else {
+        if (uploadedNumFrames==0) {
+          FastLED.showColor(CRGB::Blue);
+        }
+        // If no animation is loaded, show a solid color
+        FastLED.showColor(CRGB::Red);
+        delay(100);
+      }
     }
 }
