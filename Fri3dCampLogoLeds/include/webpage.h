@@ -8,233 +8,261 @@ const char* HTML_CODE = R"rawliteral(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ESP32 LED Control</title>
+  <title>Fri3dCamp LED Control</title>
   <style>
+    :root {
+      --primary-color: #4CAF50;
+      --secondary-color: #f44336;
+      --background-color: #f0f2f5;
+      --card-background: #ffffff;
+      --text-color: #333;
+      --border-color: #e0e0e0;
+    }
     body {
-      font-family: Arial, sans-serif;
-      background: #f4f6f8;
-      margin: 0;
-      padding: 0;
+      font-family: 'Arial', sans-serif;
+      background-color: var(--background-color);
+      color: var(--text-color);
       display: flex;
       justify-content: center;
-      align-items: flex-start;
-      min-height: 100vh;
+      padding: 20px;
     }
-
     .container {
-      background: #fff;
-      padding: 30px 40px;
-      margin-top: 50px;
-      border-radius: 15px;
-      box-shadow: 0 6px 15px rgba(0,0,0,0.1);
-      text-align: center;
-      max-width: 500px;
       width: 100%;
-    }
-
-    h1 {
-      margin-bottom: 20px;
-      color: #333;
-      font-size: 1.8em;
-    }
-
-    .effect-group {
-      margin-bottom: 25px;
-      text-align: left;
-    }
-
-    .effect-group label {
-      margin-left: 8px;
-      font-size: 1.1em;
-      color: #444;
-    }
-
-    .effect-option {
-      margin: 10px 0;
+      max-width: 700px;
       display: flex;
-      align-items: center;
+      flex-direction: column;
+      gap: 20px;
     }
-    
-    .color-picker {
-      margin-left: 30px;
-      margin-top: 8px;
-    }
-
-    .slider-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      margin: 20px 0 10px 0;
-    }
-
-    .slider-label {
-      margin: 0 15px;
-      font-size: 1em;
-      color: #555;
-    }
-
-    .slider {
-      width: 250px;
-      height: 8px;
-      border-radius: 5px;
-      background: #ddd;
-      outline: none;
-      -webkit-appearance: none;
-    }
-
-    .slider:hover {
-      background: #ccc;
-    }
-
-    .slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: #4CAF50;
-      cursor: pointer;
-      border: none;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    }
-
-    #speedValue {
-      margin-bottom: 25px;
-      font-size: 1.1em;
-      color: #333;
-    }
-
-    .button {
-      background: #4CAF50;
-      border: none;
-      color: white;
-      padding: 14px 28px;
-      border-radius: 8px;
-      font-size: 16px;
-      cursor: pointer;
-      transition: background 0.3s ease;
-    }
-
-    .button:hover {
-      background: #45a049;
-    }
-
-    #animations-list {
-      list-style-type: none;
-      padding: 0;
-      text-align: left;
-    }
-    
-    #animations-list li {
+    .header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin: 5px 0;
+      padding-bottom: 20px;
+      border-bottom: 2px solid var(--border-color);
     }
-
-    #animations-list .animation-name-button {
-      background: none;
-      border: none;
-      color: #4CAF50;
-      cursor: pointer;
-      font-size: 1em;
-      text-decoration: underline;
+    .header h1 {
+      margin: 0;
+      font-size: 2em;
     }
-
-    #animations-list .animation-name-button:hover {
-      color: #45a049;
-    }
-    
-    #animations-list .delete-button {
-      background: #f44336;
-      border: none;
+    .power-button {
+      background-color: var(--secondary-color);
       color: white;
-      padding: 5px 10px;
+      border: none;
+      padding: 10px 20px;
+      font-size: 1em;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      transition: background-color 0.3s ease;
+    }
+    .power-button.on {
+      background-color: var(--primary-color);
+    }
+    .power-button:hover {
+      filter: brightness(1.1);
+    }
+    .card {
+      background-color: var(--card-background);
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .card-title {
+      font-size: 1.5em;
+      margin-bottom: 15px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 10px;
+    }
+    .control-group {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+    }
+    .control-item {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .button-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .effect-button {
+      background-color: #eee;
+      border: 2px solid #ddd;
+      color: var(--text-color);
+      padding: 10px 15px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      flex-grow: 1;
+    }
+    .effect-button.active {
+      background-color: var(--primary-color);
+      color: white;
+      border-color: var(--primary-color);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .effect-button:hover:not(.active) {
+      background-color: #e0e0e0;
+    }
+    .input-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .input-group input[type="number"] {
+      width: 60px;
+      padding: 8px;
       border-radius: 5px;
+      border: 1px solid var(--border-color);
+    }
+    .slider-container {
+      width: 100%;
+      margin-top: 15px;
+    }
+    .slider {
+      width: 100%;
+    }
+    .slider-label {
+      font-size: 0.9em;
+      color: #666;
+      text-align: center;
+      margin-top: 5px;
+    }
+    .animation-list {
+      list-style-type: none;
+      padding: 0;
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid var(--border-color);
+      border-radius: 5px;
+      margin-top: 10px;
+    }
+    .animation-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 15px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .animation-item:last-child {
+      border-bottom: none;
+    }
+    .animation-name {
+      font-weight: bold;
+      flex-grow: 1;
+    }
+    .animation-item button {
+      background-color: transparent;
+      border: none;
+      color: var(--primary-color);
       cursor: pointer;
     }
-    
-    #animations-list .delete-button:hover {
-      background: #d32f2f;
+    .delete-button {
+      color: var(--secondary-color) !important;
+      margin-left: 10px;
     }
-
-    .upload-section {
-      margin-top: 25px;
-      padding-top: 25px;
-      border-top: 1px solid #ddd;
-      text-align: left;
+    .file-upload-section {
+      margin-top: 15px;
+    }
+    .file-upload-section input[type="file"] {
+      border: 1px solid var(--border-color);
+      border-radius: 5px;
+      padding: 8px;
+      width: calc(100% - 18px);
+    }
+    .main-button {
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      margin-top: 10px;
+    }
+    .main-button:hover {
+      background-color: #45a049;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Fri3dCamp LED Control</h1>
+    <div class="header">
+      <h1>Fri3dCamp LED Control</h1>
+      <button id="power-button" class="power-button">Power</button>
+    </div>
 
-    <div class="effect-group">
-      Color: <input type="color" id="colorPicker" class="color-picker" value="#ff0000" onchange="setColor(this.value)">
-      <div class="effect-option">
-        <input type="radio" id="solid" name="effect" value="SOLID" onchange="selectEffect(this.value)">
-        <label for="solid">Solid</label>
+    <!-- Main Controls -->
+    <div class="card">
+      <div class="card-title">Main Controls</div>
+      <div class="control-group">
+        <div class="control-item">
+          <label for="colorPicker">Solid Color</label>
+          <input type="color" id="colorPicker" onchange="setColor(this.value)" value="#ff0000">
+        </div>
+        <div class="control-item">
+          <label>Effects</label>
+          <div class="button-group">
+            <button class="effect-button" data-effect="SOLID" onclick="selectEffect('SOLID')">Solid</button>
+            <button class="effect-button" data-effect="CHASE" onclick="selectEffect('CHASE')">Chase</button>
+            <button class="effect-button" data-effect="ANIMATION_FIRE" onclick="selectEffect('ANIMATION_FIRE')">Fire</button>
+            <button class="effect-button" data-effect="ANIMATION_LEFT_RIGHT" onclick="selectEffect('ANIMATION_LEFT_RIGHT')">Left/Right</button>
+          </div>
+        </div>
       </div>
-
-      <div class="effect-option">
-        <input type="radio" id="chase" name="effect" value="CHASE" onchange="selectEffect(this.value)">
-        <label for="chase">Chase</label>
-      </div>
-      <p>Set the speed of the lighting effect (delay in ms)</p>
       <div class="slider-container">
-        <span class="slider-label">Slow</span>
+        <label>Speed</label>
         <input type="range" min="1" max="200" value="40" class="slider" id="speedRange">
-        <span class="slider-label">Fast</span>
+        <div class="slider-label" id="speedValue">Delay: 40ms</div>
       </div>
-      <p id="speedValue" style="text-align: center">Delay: 40ms</p>
-    
-      <div class="effect-option">
-        <input type="radio" id="litpart" name="effect" value="LITPART" onchange="selectEffect(this.value)">
-        <label for="litpart">lit part</label>
-      </div>
-      From <input type="number" id="litfrom" value="LITFROM">
-      To <input type="number" id="litto" value="LITTO">
-      <button class="button" onclick="litPart()">Update</button>
-    </div>
-
-    <div class="effect-option">
-      <input type="radio" id="fire" name="effect" value="ANIMATION_FIRE" onchange="selectEffect(this.value)">
-      <label for="fire">Fire</label>
-    </div>
-    <div class="effect-option">
-      <input type="radio" id="leftright" name="effect" value="ANIMATION_LEFT_RIGHT" onchange="selectEffect(this.value)">
-      <label for="leftright">Left to right</label>
     </div>
     
-    <div class="effect-option">
-      <input type="radio" id="uploadedAnimationRadio" name="effect" value="UPLOADED_ANIMATION" onchange="selectEffect(this.value)">
-      <label for="uploadedAnimationRadio">Uploaded Animation</label>
+    <!-- Lit Part Controls -->
+    <div class="card">
+      <div class="card-title">Lit Part</div>
+      <div class="input-group">
+        <label>From</label>
+        <input type="number" id="litfrom" value="0">
+        <label>To</label>
+        <input type="number" id="litto" value="10">
+        <div>
+        <button class="main-button" onclick="litPart()">Update</button>
+        </div>
+      </div>
     </div>
 
-    <div class="upload-section">
-      <h2>Upload New Animation</h2>
-      <input type="file" id="animationFile" accept=".bin">
-      <button class="button" onclick="uploadAnimation()">Upload & Save</button>
+    <!-- Animations -->
+    <div class="card">
+      <div class="card-title">Animations</div>
+      <button class="main-button" onclick="listAnimations()">Refresh Animations</button>
+      <ul class="animation-list" id="animations-list"></ul>
+      <div class="file-upload-section">
+        <label>Upload New Animation (.bin)</label>
+        <input type="file" id="animationFile" accept=".bin">
+        <button class="main-button" onclick="uploadAnimation()">Upload & Save</button>
+      </div>
     </div>
-
-    <div class="upload-section">
-      <h2>Select Animation</h2>
-      <button class="button" onclick="listAnimations()">Refresh Animations</button>
-      <ul id="animations-list"></ul>
-    </div>
-
     <div class="upload-section">
       <h2>Console Output</h2>
       <pre id="consoleOutput" style="background:#222;color:#eee;padding:10px;border-radius:8px;max-height:200px;overflow:auto;text-align:left;"></pre>
     </div>
+  </div>
   </div>
 
   <script>
     var slider = document.getElementById("speedRange");
     var output = document.getElementById("speedValue");
     var colorPicker = document.getElementById("colorPicker");
+    var litColorPicker = document.getElementById("litColorPicker");
+    var powerButton = document.getElementById("power-button");
+    
+    // Initial active state for a button
+    document.querySelector('[data-effect="SOLID"]').classList.add('active');
 
-    // Slider update
     slider.oninput = function() {
       var value = this.value;
       output.innerHTML = "Delay: " + value + "ms";
@@ -243,29 +271,51 @@ const char* HTML_CODE = R"rawliteral(
       xhttp.send();
     }
 
-    // Send effect selection
     function selectEffect(effect) {
+      document.querySelectorAll('.effect-button').forEach(btn => btn.classList.remove('active'));
+      document.querySelector(`[data-effect="${effect}"]`).classList.add('active');
+
       var xhttp = new XMLHttpRequest();
       xhttp.open("GET", "/set_effect?value=" + effect, true);
       xhttp.send();
     }
 
-    // Send chosen color
     function setColor(color) {
       var xhttp = new XMLHttpRequest();
-      xhttp.open("GET", "/set_color?value=" + color.substring(1), true); // send hex without #
+      xhttp.open("GET", "/set_color?value=" + color.substring(1), true);
       xhttp.send();
     }
 
     function litPart() {
       var valueFrom = document.getElementById("litfrom").value;
       var valueTo = document.getElementById("litto").value;
+      var litColor = litColorPicker.value.substring(1);
+      
       var xhttp = new XMLHttpRequest();
-      xhttp.open("GET", "/set_litpart?valueFrom=" + valueFrom + "&valueTo=" + valueTo, true);
+      xhttp.open("GET", "/set_litpart?valueFrom=" + valueFrom + "&valueTo=" + valueTo + "&litColor=" + litColor, true);
       xhttp.send();
     }
     
-    // New functions for animation management
+    powerButton.onclick = function() {
+      fetch('/toggle_power')
+        .then(response => response.text())
+        .then(result => {
+          if (result === "ON") {
+            powerButton.classList.add('on');
+            // Re-select the last active effect or the default one
+            let lastActiveBtn = document.querySelector('.effect-button.active');
+            if (lastActiveBtn) {
+              selectEffect(lastActiveBtn.dataset.effect);
+            } else {
+              selectEffect('SOLID');
+            }
+          } else {
+            powerButton.classList.remove('on');
+            selectEffect('OFF');
+          }
+        })
+        .catch(error => console.error('Error toggling power:', error));
+    };
 
     function uploadAnimation() {
       const fileInput = document.getElementById('animationFile');
@@ -284,7 +334,6 @@ const char* HTML_CODE = R"rawliteral(
       })
       .then(response => response.text())
       .then(result => {
-        alert(result);
         listAnimations();
       })
       .catch(error => {
@@ -301,9 +350,15 @@ const char* HTML_CODE = R"rawliteral(
           list.innerHTML = '';
           animations.forEach(fileName => {
             const li = document.createElement('li');
+            li.className = 'animation-item';
+            
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'animation-name';
+            nameSpan.textContent = fileName;
+            li.appendChild(nameSpan);
+
             const playButton = document.createElement('button');
-            playButton.textContent = fileName;
-            playButton.className = 'animation-name-button';
+            playButton.textContent = 'Play';
             playButton.onclick = () => selectAnimation(fileName);
             li.appendChild(playButton);
 
@@ -323,9 +378,8 @@ const char* HTML_CODE = R"rawliteral(
       fetch('/select_animation?filename=' + fileName)
         .then(response => response.text())
         .then(result => {
-          alert('Playing ' + fileName + '!');
           // Set the radio button for the uploaded animation effect
-          document.getElementById('uploadedAnimationRadio').checked = true;
+          document.querySelectorAll('.effect-button').forEach(btn => btn.classList.remove('active'));
           selectEffect('UPLOADED_ANIMATION');
         })
         .catch(error => console.error('Error selecting animation:', error));
@@ -336,7 +390,6 @@ const char* HTML_CODE = R"rawliteral(
         fetch('/delete_animation?filename=' + fileName)
           .then(response => response.text())
           .then(result => {
-            alert(result);
             listAnimations();
           })
           .catch(error => console.error('Error deleting animation:', error));
