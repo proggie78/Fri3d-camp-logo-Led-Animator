@@ -222,6 +222,11 @@ const char* HTML_CODE = R"rawliteral(
       <button class="button" onclick="listAnimations()">Refresh Animations</button>
       <ul id="animations-list"></ul>
     </div>
+
+    <div class="upload-section">
+      <h2>Console Output</h2>
+      <pre id="consoleOutput" style="background:#222;color:#eee;padding:10px;border-radius:8px;max-height:200px;overflow:auto;text-align:left;"></pre>
+    </div>
   </div>
 
   <script>
@@ -339,7 +344,23 @@ const char* HTML_CODE = R"rawliteral(
     }
     
     // Call listAnimations on page load
-    window.onload = listAnimations;
+    window.onload = function() {
+      listAnimations();
+      fetchLogs();
+    };
+
+    // Fetch logs from /logs endpoint and update consoleOutput
+    function fetchLogs() {
+      fetch('/logs')
+        .then(response => response.json())
+        .then(logs => {
+          document.getElementById('consoleOutput').textContent = logs.join('\n');
+        })
+        .catch(error => {
+          document.getElementById('consoleOutput').textContent = 'Error fetching logs.';
+        });
+      setTimeout(fetchLogs, 5000); // Refresh every 5 seconds
+    }
   </script>
 </body>
 </html>

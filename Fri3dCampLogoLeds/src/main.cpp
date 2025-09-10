@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WebServer.h>
+#include <vector>
 #include <ArduinoOTA.h>
 #include <FastLED.h>
 #include <FS.h>
@@ -19,6 +20,16 @@
 
 CRGB leds[NUM_LEDS];
 WebServer server(80);
+File uploadedFile;
+
+// Log buffer
+std::vector<String> logBuffer;
+const size_t LOG_BUFFER_MAX = 50;
+void logMessage(const String& msg) {
+    Serial.println(msg);
+    logBuffer.push_back(msg);
+    if (logBuffer.size() > LOG_BUFFER_MAX) logBuffer.erase(logBuffer.begin());
+}
 
 const char* ssid = SECRET_SSID;
 const char* password = SECRET_PASS;
@@ -55,15 +66,14 @@ void handleRoot() {
 void handleSetSpeed() {
     if (server.hasArg("value")) {
         led_interval = 200 - server.arg("value").toInt();
-        Serial.print("New speed set: ");
-        Serial.println(led_interval);
+        logMessage("New speed set: " + String(led_interval));
     }
     server.send(200, "text/plain", "OK");
 }
 
 void handleLitAll() {
     lit_all = true;
-    Serial.println("Lit all command received.");
+    logMessage("Lit all command received.");
     server.send(200, "text/plain", "OK");
 }
 
@@ -85,12 +95,11 @@ void handleSetEffect() {
             currentFrame = 0;
         } else if (effectStr == "UPLOADED_ANIMATION") {
             // This is handled by a separate endpoint that also passes the filename
-            Serial.println("Please use the /select_animation endpoint to choose a file.");
+            //logMessage("Please use the /select_animation endpoint to choose a file.");
             server.send(200, "text/plain", "OK");
             return;
         }
-        Serial.print("New effect set: ");
-        Serial.println(effectStr);
+        logMessage("New effect set: " + effectStr);
     }
     server.send(200, "text/plain", "OK");
 } 
@@ -107,8 +116,7 @@ void handleSetColor() {
             leds[i] = CRGB(r, g, b);
         }
         FastLED.show();
-        Serial.print("New color set: #");
-        Serial.println(hexColor);
+        logMessage("New color set: #" + hexColor);
     }
     server.send(200, "text/plain", "OK");
 }
@@ -123,14 +131,11 @@ void handleSetLitPart() {
             leds[i] = CRGB::White;
         }
         FastLED.show();
-        Serial.print("New lit part set: ");
-        Serial.print(valueFrom);
-        Serial.print(" to ");
-        Serial.println(valueTo);
+        logMessage("New lit part set: " + String(valueFrom) + " to " + String(valueTo));
         server.send(200, "text/plain", "OK");
     }
     else {
-        Serial.println("Error: Missing valueFrom or valueTo parameter.");
+        logMessage("Error: Missing valueFrom or valueTo parameter.");
         server.send(400, "text/plain", "Error: Missing valueFrom or valueTo parameter.");
     }
 }
@@ -143,30 +148,34 @@ void handleUploadAnimation() {
             filename = "/" + filename;
         }
         Serial.printf("Receiving uploaded file: %s\n", filename.c_str());
-        File file = LittleFS.open(filename, "w");
-        if (!file) {
+        uploadedFile = LittleFS.open(filename, "w");
+        if (!uploadedFile) {
             Serial.println("Failed to open file for writing");
             return;
         }
     } else if (upload.status == UPLOAD_FILE_WRITE) {
-        // Write the received data to file
-        String filename = upload.filename;
-        if (!filename.startsWith("/")) {
-            filename = "/" + filename;
+        if (uploadedFile) {
+            uploadedFile.write(upload.buf, upload.currentSize);
         }
-        File file = LittleFS.open(filename, "a");
-        file.write(upload.buf, upload.currentSize);
-        file.close();
     } else if (upload.status == UPLOAD_FILE_END) {
-        Serial.printf("File upload complete. File size: %d bytes\n", upload.totalSize);
-        server.sendHeader("Connection", "close");
-        server.send(200, "text/plain", "Animation saved successfully!");
+        if (uploadedFile) {
+            uploadedFile.close();
+            Serial.printf("File upload complete. File size: %d bytes\n", upload.totalSize);
+            server.sendHeader("Connection", "close");
+            server.send(200, "text/plain", "Animation saved successfully!");
+        } else {
+            Serial.println("File handle lost during upload.");
+            server.send(500, "text/plain", "File upload failed!");
+        }
     }
 }
 
 void loadAnimation(const String& fileName) {
-    File file = LittleFS.open(fileName, "r");
+Serial.printf("Loading animation from file: %s\n", fileName.c_str());
+
+    File file = LittleFS.open(fileName, "r", false);
     if (!file) {
+        logMessage("Failed to open uploaded animation file");
         Serial.printf("Failed to open uploaded animation file: %s\n", fileName.c_str());
         uploadedNumFrames = 0;
         return;
@@ -176,25 +185,35 @@ void loadAnimation(const String& fileName) {
         free(uploadedAnimationData);
         uploadedAnimationData = nullptr;
     }
-    
+    Serial.println("File size2: " + String(file.size()));
     // Allocate memory for the animation data
     uploadedAnimationData = (uint8_t*)malloc(file.size());
+    Serial.println("File size3: " + String(file.size()));
     if (uploadedAnimationData == nullptr) {
-        Serial.println("Failed to allocate memory for uploaded animation!");
+        logMessage("Failed to allocate memory for uploaded animation!");
         uploadedNumFrames = 0;
         file.close();
         return;
     }
     
     file.read(uploadedAnimationData, file.size());
-    file.close();
     uploadedNumFrames = file.size() / (NUM_LEDS * 3);
+    logMessage("File Size: " + String(file.size()) + " bytes");
+    logMessage("Loaded animation '" + fileName + "' with " + String(uploadedNumFrames) + " frames.");
     Serial.printf("Loaded animation '%s' with %d frames.\n", fileName.c_str(), uploadedNumFrames);
+    file.close();
 }
 
 void handleSelectAnimation() {
     if (server.hasArg("filename")) {
         String filename = server.arg("filename");
+        
+        // Find the position of " - " to strip the file size info
+        int pos = filename.indexOf(" - ");
+        if (pos > 0) {
+            filename = filename.substring(0, pos);
+        }
+
         Serial.printf("Selecting animation: %s\n", filename.c_str());
         currentAnimationFile = filename;
         led_effect = UPLOADED_ANIMATION;
@@ -211,7 +230,13 @@ void handleDeleteAnimation() {
         server.send(400, "text/plain", "Missing filename");
         return;
     }
+    
     String filename = server.arg("filename");
+        // Find the position of " - " to strip the file size info
+    int pos = filename.indexOf(" - ");
+    if (pos > 0) {
+        filename = filename.substring(0, pos);
+    }
     String fullPath = "/" + filename;
     if (LittleFS.exists(fullPath)) {
         if (LittleFS.remove(fullPath)) {
@@ -232,10 +257,11 @@ void handleListAnimations() {
     File file = root.openNextFile();
 
     while (file) {
-        animations.add(file.name());
+        logMessage("Found animation file: " + String(file.path()) + String(file.name()) + " - " + String(file.size()) + " bytes");
+        animations.add(String(file.name()) + " - " + String(file.size()) + " bytes");
         file = root.openNextFile();
     }
-
+    logMessage("Total size:" + String(LittleFS.totalBytes()) + " used bytes: " + String(LittleFS.usedBytes()));
     String output;
     serializeJson(doc, output);
     server.send(200, "application/json", output);
@@ -262,6 +288,17 @@ void setup() {
     FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
     FastLED.clear();
     FastLED.show();
+
+        // Add /logs endpoint
+        server.on("/logs", []() {
+            String logsJson = "[";
+            for (size_t i = 0; i < logBuffer.size(); ++i) {
+                logsJson += '"' + logBuffer[i] + '"';
+                if (i < logBuffer.size() - 1) logsJson += ",";
+            }
+            logsJson += "]";
+            server.send(200, "application/json", logsJson);
+        });
 
     // LittleFS setup
     if (!LittleFS.begin(true)) {
