@@ -71,8 +71,9 @@ void handleSetSpeed() {
 
 void handleSetEffect() {
     if (server.hasArg("value")) {
+        powerState = true; // Ensure power is on when changing effect
         String effectStr = server.arg("value");
-        if (effectStr == "SOLID") {
+        if (effectStr == "SOLID") {  
             led_effect = SOLID;
             FastLED.showColor(currentColor);
         } else if (effectStr == "CHASE") {
@@ -213,6 +214,7 @@ Serial.printf("Loading animation from file: %s\n", fileName.c_str());
 
 void handleSelectAnimation() {
     if (server.hasArg("filename")) {
+        powerState = true; // Ensure power is on when selecting an animation
         String filename = server.arg("filename");
         
         // Find the position of " - " to strip the file size info
@@ -339,6 +341,9 @@ void setup() {
     server.on("/select_animation", handleSelectAnimation);
     server.on("/delete_animation", handleDeleteAnimation);
     server.on("/toggle_power", handlePower);
+    server.on("/get_power", []() {
+        server.send(200, "text/plain", powerState ? "ON" : "OFF");
+    });
     server.begin();
     Serial.println("HTTP server started");
 }

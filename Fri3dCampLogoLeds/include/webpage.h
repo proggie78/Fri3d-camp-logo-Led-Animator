@@ -11,8 +11,10 @@ const char* HTML_CODE = R"rawliteral(
   <title>Fri3dCamp LED Control</title>
   <style>
     :root {
-      --primary-color: #4CAF50;
+      --on-color: #4CAF50;
+      --off-color: #f8ebeaff;
       --secondary-color: #f44336;
+      --primary-color: #4CAF50;
       --background-color: #f0f2f5;
       --card-background: #ffffff;
       --text-color: #333;
@@ -45,8 +47,8 @@ const char* HTML_CODE = R"rawliteral(
       font-size: 2em;
     }
     .power-button {
-      background-color: var(--secondary-color);
-      color: white;
+      background-color: var(--off-color);
+      color: black;
       border: none;
       padding: 10px 20px;
       font-size: 1em;
@@ -56,7 +58,8 @@ const char* HTML_CODE = R"rawliteral(
       transition: background-color 0.3s ease;
     }
     .power-button.on {
-      background-color: var(--primary-color);
+      background-color: var(--on-color);
+      color: white;
     }
     .power-button:hover {
       filter: brightness(1.1);
@@ -252,6 +255,7 @@ const char* HTML_CODE = R"rawliteral(
     <!-- Console Output -->
     <div class="upload-section">
       <h2>Console Output</h2>
+      <label><input type="checkbox" id="consoleEnable" checked> Console auto-refresh</label>
       <pre id="consoleOutput" style="background:#222;color:#eee;padding:10px;border-radius:8px;max-height:200px;overflow:auto;text-align:left;"></pre>
     </div>
   </div>
@@ -418,18 +422,36 @@ const char* HTML_CODE = R"rawliteral(
     window.onload = function() {
       listAnimations();
       fetchLogs();
+      getPowerState();
     };
+
+  function getPowerState() {
+    fetch('/get_power')
+      .then(response => response.text())
+      .then(result => {
+        if (result === "ON") {
+          powerButton.classList.add('on');
+        } else {
+          powerButton.classList.remove('on');
+        }
+      })
+      .catch(error => console.error('Error fetching power state:', error));
+    setTimeout(getPowerState, 1000); // Poll every second
+  }
 
     // Fetch logs from /logs endpoint and update consoleOutput
     function fetchLogs() {
-      fetch('/logs')
-        .then(response => response.json())
-        .then(logs => {
-          document.getElementById('consoleOutput').textContent = logs.join('\n');
-        })
-        .catch(error => {
-          document.getElementById('consoleOutput').textContent = 'Error fetching logs.';
-        });
+      var consoleEnabled = document.getElementById('consoleEnable').checked;
+      if (consoleEnabled) {
+        fetch('/logs')
+          .then(response => response.json())
+          .then(logs => {
+            document.getElementById('consoleOutput').textContent = logs.join('\n');
+          })
+          .catch(error => {
+            document.getElementById('consoleOutput').textContent = 'Error fetching logs.';
+          });
+      }
       setTimeout(fetchLogs, 5000); // Refresh every 5 seconds
     }
   </script>
