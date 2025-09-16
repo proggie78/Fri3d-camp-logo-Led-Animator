@@ -9,8 +9,6 @@
 #include <ArduinoJson.h>
 #include "secrets.h"
 #include "webpage.h"
-#include "led_animation_fire.h" // Include the generated animation data header
-#include "led_animation_left_right.h" // Include the generated animation data header
 
 // Your existing defines
 #define LED_PIN     2
@@ -21,6 +19,7 @@
 CRGB leds[NUM_LEDS];
 WebServer server(80);
 File uploadedFile;
+bool powerState = true; 
 
 // Log buffer
 std::vector<String> logBuffer;
@@ -38,8 +37,6 @@ enum Effect {
     SOLID,
     CHASE,
     LITPART,
-    ANIMATION_FIRE, // New ANIMATION_FIRE effect
-    ANIMATION_LEFT_RIGHT,
     UPLOADED_ANIMATION // New effect for user-uploaded animations
 };
 
@@ -71,12 +68,6 @@ void handleSetSpeed() {
     server.send(200, "text/plain", "OK");
 }
 
-void handleLitAll() {
-    lit_all = true;
-    logMessage("Lit all command received.");
-    server.send(200, "text/plain", "OK");
-}
-
 void handleSetEffect() {
     if (server.hasArg("value")) {
         String effectStr = server.arg("value");
@@ -87,12 +78,6 @@ void handleSetEffect() {
             led_effect = CHASE;
         } else if (effectStr == "LITPART") {
             led_effect = LITPART;
-        } else if (effectStr == "ANIMATION_FIRE") {
-            led_effect = ANIMATION_FIRE;
-            currentFrame = 0;
-        } else if (effectStr == "ANIMATION_LEFT_RIGHT") {
-            led_effect = ANIMATION_LEFT_RIGHT;
-            currentFrame = 0;
         } else if (effectStr == "UPLOADED_ANIMATION") {
             // This is handled by a separate endpoint that also passes the filename
             //logMessage("Please use the /select_animation endpoint to choose a file.");
@@ -257,15 +242,30 @@ void handleListAnimations() {
     File file = root.openNextFile();
 
     while (file) {
-        logMessage("Found animation file: " + String(file.path()) + String(file.name()) + " - " + String(file.size()) + " bytes");
-        animations.add(String(file.name()) + " - " + String(file.size()) + " bytes");
+        size_t fileSizeKB = (file.size() + 1023) / 1024; // Round up to nearest KB
+        //logMessage("Found animation file: " + String(file.path()) + String(file.name()) + " - " + String(fileSizeKB) + " KB");
+        animations.add(String(file.name()) + " - " + String(fileSizeKB) + " KB");
         file = root.openNextFile();
     }
-    logMessage("Total size:" + String(LittleFS.totalBytes()) + " used bytes: " + String(LittleFS.usedBytes()));
+    logMessage("FS Total size:" + String(LittleFS.totalBytes()) + " used bytes: " + String(LittleFS.usedBytes()));
     String output;
     serializeJson(doc, output);
     server.send(200, "application/json", output);
 }
+
+void handlePower() {
+    powerState = !powerState;
+    if (powerState) {
+        //FastLED.showColor(currentColor);
+        logMessage("Power ON command received.");
+    } else {
+        FastLED.clear();
+        FastLED.show();
+        logMessage("Power OFF command received.");
+    }
+    server.send(200, "text/plain", "OK");
+}
+
 
 void setup() {
     Serial.begin(115200);
@@ -316,6 +316,7 @@ void setup() {
     server.on("/list_animations", handleListAnimations);
     server.on("/select_animation", handleSelectAnimation);
     server.on("/delete_animation", handleDeleteAnimation);
+    server.on("/toggle_power", handlePower);
     server.begin();
     Serial.println("HTTP server started");
 }
@@ -327,7 +328,7 @@ void loop() {
     static int current = 0;
     static bool turningOn = true;
     static unsigned long lastUpdate = 0;
-    FastLED.setBrightness(20);
+    //FastLED.setBrightness(20);
 
 
     if(led_effect == SOLID)
@@ -340,6 +341,11 @@ void loop() {
     }
     else if(led_effect == CHASE)
     {
+        if(!powerState) 
+        {
+            delay(100); 
+            return;
+        }
       if (millis() - lastUpdate > led_interval) {
           lastUpdate = millis();
 
@@ -360,44 +366,13 @@ void loop() {
           }
         }
     }
-    else if (led_effect == ANIMATION_FIRE)
-    {
-      if (millis() - lastUpdate > led_interval)
-      {
-          lastUpdate = millis();
-          FastLED.clear();
-          for (int i = 0; i < NUM_LEDS; i++)
-          {
-              int index = (currentFrame * NUM_LEDS * 3) + (i * 3);
-              leds[i].r = ledAnimationFire[index + 0];
-              leds[i].g = ledAnimationFire[index + 1];
-              leds[i].b = ledAnimationFire[index + 2];
-          }
-
-          FastLED.show();
-          currentFrame = (currentFrame + 1) % 61;
-      }
-    }
-    else if (led_effect == ANIMATION_LEFT_RIGHT)
-    {
-      if (millis() - lastUpdate > led_interval)
-      {
-          lastUpdate = millis();
-          FastLED.clear();
-          for (int i = 0; i < NUM_LEDS; i++)
-          {
-              int index = (currentFrame * NUM_LEDS * 3) + (i * 3);
-              leds[i].r = ledAnimationLeftRight[index + 0];
-              leds[i].g = ledAnimationLeftRight[index + 1];
-              leds[i].b = ledAnimationLeftRight[index + 2];
-          }
-
-          FastLED.show();
-          currentFrame = (currentFrame + 1) % 37;
-      }
-    }
     else if (led_effect == UPLOADED_ANIMATION) // Display the uploaded animation
     {
+        if(!powerState) 
+        {
+            delay(100); 
+            return;
+        }
       if (uploadedAnimationData != nullptr && uploadedNumFrames > 0)
       {
         if (millis() - lastUpdate > led_interval)
@@ -424,3 +399,6 @@ void loop() {
       }
     }
 }
+
+
+
