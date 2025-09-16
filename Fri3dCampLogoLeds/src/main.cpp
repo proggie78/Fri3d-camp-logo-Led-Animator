@@ -20,6 +20,7 @@ CRGB leds[NUM_LEDS];
 WebServer server(80);
 File uploadedFile;
 bool powerState = true; 
+bool uploadedAnimationIsBW = false;
 
 // Log buffer
 std::vector<String> logBuffer;
@@ -170,10 +171,17 @@ Serial.printf("Loading animation from file: %s\n", fileName.c_str());
         free(uploadedAnimationData);
         uploadedAnimationData = nullptr;
     }
-    Serial.println("File size2: " + String(file.size()));
+    
+    size_t fileSize = file.size();
+    if (fileSize < 1) {
+        logMessage("Animation file too small!");
+        uploadedNumFrames = 0;
+        file.close();
+        return;
+    }
+
     // Allocate memory for the animation data
-    uploadedAnimationData = (uint8_t*)malloc(file.size());
-    Serial.println("File size3: " + String(file.size()));
+    uploadedAnimationData = (uint8_t*)malloc(fileSize);
     if (uploadedAnimationData == nullptr) {
         logMessage("Failed to allocate memory for uploaded animation!");
         uploadedNumFrames = 0;
@@ -182,10 +190,24 @@ Serial.printf("Loading animation from file: %s\n", fileName.c_str());
     }
     
     file.read(uploadedAnimationData, file.size());
-    uploadedNumFrames = file.size() / (NUM_LEDS * 3);
-    logMessage("File Size: " + String(file.size()) + " bytes");
+    
+    // First byte indicates black and white (1 = BW, 0 = color)
+    uploadedAnimationIsBW = uploadedAnimationData[0] == 1;
+
+    // Animation data starts from byte 1
+    size_t animationDataSize = fileSize - 1;
+    if (uploadedAnimationIsBW) {
+        size_t frameSize = (NUM_LEDS + 7) / 8;
+        uploadedNumFrames = animationDataSize / frameSize;
+    } else {
+        size_t frameSize = NUM_LEDS * 3;
+        uploadedNumFrames = animationDataSize / frameSize;
+    }
+
+    logMessage("File Size: " + String(fileSize) + " bytes");
     logMessage("Loaded animation '" + fileName + "' with " + String(uploadedNumFrames) + " frames.");
-    Serial.printf("Loaded animation '%s' with %d frames.\n", fileName.c_str(), uploadedNumFrames);
+    logMessage(String("Animation type: ") + (uploadedAnimationIsBW ? "Black & White" : "Color"));
+    Serial.printf("Loaded animation '%s' with %d frames. BW: %d\n", fileName.c_str(), uploadedNumFrames, uploadedAnimationIsBW);
     file.close();
 }
 
@@ -373,21 +395,32 @@ void loop() {
             delay(100); 
             return;
         }
-      if (uploadedAnimationData != nullptr && uploadedNumFrames > 0)
-      {
-        if (millis() - lastUpdate > led_interval)
-        {
-            lastUpdate = millis();
-            FastLED.clear();
-            for (int i = 0; i < NUM_LEDS; i++)
-            {
-                int index = (currentFrame * NUM_LEDS * 3) + (i * 3);
-                leds[i].r = uploadedAnimationData[index + 0];
-                leds[i].g = uploadedAnimationData[index + 1];
-                leds[i].b = uploadedAnimationData[index + 2];
-            }
-            FastLED.show();
-            currentFrame = (currentFrame + 1) % uploadedNumFrames;
+        if (uploadedAnimationData != nullptr && uploadedNumFrames > 0) {
+            if (millis() - lastUpdate > led_interval) {
+                lastUpdate = millis();
+                FastLED.clear();
+                if (uploadedAnimationIsBW) {
+                    size_t frameSize = (NUM_LEDS + 7) / 8;
+                    size_t frameOffset = 1 + (currentFrame * frameSize);
+                    for (int i = 0; i < NUM_LEDS; i++) {
+                        size_t byteIndex = frameOffset + (i / 8);
+                        uint8_t bitMask = 1 << (i % 8);
+                        bool ledOn = (uploadedAnimationData[byteIndex] & bitMask) != 0;
+                        leds[i] = ledOn ? currentColor : CRGB::Black;
+                    }
+                } else {
+                    size_t frameSize = NUM_LEDS * 3;
+                    size_t frameOffset = 1 + (currentFrame * frameSize);
+                    for (int i = 0; i < NUM_LEDS; i++) {
+                        int index = frameOffset + (i * 3);
+                        leds[i].r = uploadedAnimationData[index + 0];
+                        leds[i].g = uploadedAnimationData[index + 1];
+                        leds[i].b = uploadedAnimationData[index + 2];
+                    }
+                }
+                FastLED.show();
+                currentFrame = (currentFrame + 1) % uploadedNumFrames;
+
         }
       } else {
         if (uploadedNumFrames==0) {

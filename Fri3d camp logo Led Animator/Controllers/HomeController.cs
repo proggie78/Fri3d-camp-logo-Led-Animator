@@ -35,7 +35,7 @@ public class HomeController(GifProcessor gifProcessor, ILogger<HomeController> l
     }
 
     [HttpPost]
-    public async Task<IActionResult> ProcessGif(IFormFile uploadedFile)
+    public async Task<IActionResult> ProcessGif(IFormFile uploadedFile, bool isBlackAndWhite)
     {
         if (uploadedFile == null || uploadedFile.Length == 0)
         {
@@ -44,7 +44,7 @@ public class HomeController(GifProcessor gifProcessor, ILogger<HomeController> l
         }
 
         string tempFilePath = Path.GetTempFileName();
-        string outputBinFileName = uploadedFile.FileName + ".bin";//"led_animation.h";
+        string outputBinFileName = uploadedFile.FileName.ToLower().Replace(".gif",".bin");
         string outputBinaryPath = Path.Combine(Path.GetTempPath(), outputBinFileName);
 
         try
@@ -64,9 +64,8 @@ public class HomeController(GifProcessor gifProcessor, ILogger<HomeController> l
                 return View("Index");
             }
 
-            // Generate the C++ header file with the processed data.
-            //_cppHeaderGenerator.GenerateHeaderFile(processedData, outputHeaderPath, "ledAnimationData");
-            _binaryFileGenerator.GenerateBinaryFile(processedData, outputBinaryPath);
+            // Generate the binary file with the processed data and black/white flag.
+            _binaryFileGenerator.GenerateBinaryFile(processedData, outputBinaryPath, isBlackAndWhite);
 
             // Return the generated file as a downloadable file to the user.
             var fileBytes = await System.IO.File.ReadAllBytesAsync(outputBinaryPath);
